@@ -1,0 +1,12 @@
+[project]
+name = "ananas"
+version = "0.1.0"
+description = "Pinapple"
+readme = "README.md"
+requires-python = ">=3.13"
+
+dependencies = [
+    "playwright-stealth",
+    "playwright",
+    "ruff",
+]

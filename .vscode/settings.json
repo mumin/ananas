@@ -1,0 +1,10 @@
+{
+    "files.exclude": {
+        "*.venv": true,
+        "**/.DS_Store": true,
+        "**/.git": true,
+        "**/.hg": true,
+        "**/.svn": true,
+        "**/Thumbs.db": true
+    }
+}
