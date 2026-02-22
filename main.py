@@ -1,6 +1,11 @@
 import asyncio
-from playwright.async_api import async_playwright, Page
 import os
+
+import dotenv
+from camoufox.async_api import AsyncCamoufox
+from playwright.async_api import Page
+
+dotenv.load_dotenv()
 
 
 async def fetch_page(browser):
@@ -10,6 +15,20 @@ async def fetch_page(browser):
     await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=30000)
 
     return page
+
+
+async def accept_cookies(page: Page):
+    """Attempts to accept the generic Ensighten cookie banner if it exists."""
+    print("Checking for cookie banner...")
+    try:
+        # The banner takes a moment to slide in. Wait up to 5 seconds.
+        accept_btn = page.locator("#ensSave")
+        await accept_btn.wait_for(state="visible", timeout=5000)
+        # Using force=True because ANA's modal wrapper intercepts standard pointer events
+        await accept_btn.click(force=True)
+        print("Cookie banner accepted.")
+    except Exception:
+        print("No cookie banner found or already accepted.")
 
 
 async def click_flight_awards_tab(page):
@@ -26,16 +45,19 @@ async def click_award_reservation(page):
     link_loc = page.locator(
         "a[data-scclick-element='reserve-award_txt_flightAwardReservations']"
     )
-    href = await link_loc.get_attribute("href")
+    print("Clicking Award Reservation link naturally...")
+    async with page.context.expect_page() as new_page_info:
+        await link_loc.click()
 
-    print(f"Directly navigating to: {href}")
-    # Wait until commit to bypass potential hangs on domcontentloaded for this ANA page
-    await page.goto(href, wait_until="commit", timeout=60000)
+    new_page = await new_page_info.value
+    await new_page.wait_for_load_state("domcontentloaded", timeout=60000)
+
+    print(f"Old page URL: {page.url}")
+    print(f"New page URL: {new_page.url}")
 
     # Explicitly wait for the login form to be rendered
-    await page.wait_for_selector("#accountNumber", state="visible", timeout=60000)
+    await new_page.wait_for_selector("#accountNumber", state="visible", timeout=60000)
 
-    new_page = page
     await _write_page_to_file(new_page, "1_award_reservation.html")
     return new_page
 
@@ -45,8 +67,12 @@ async def login(page: Page) -> Page:
     # Take a screenshot before filling so we can add it to the walkthrough
     await page.screenshot(path=os.path.join(os.getcwd(), "out", "login_page.png"))
 
-    await page.locator("#accountNumber").fill("1234567890")
-    await page.locator("#password").fill("FakePassword123!")
+    await page.locator("#accountNumber").press_sequentially(
+        os.getenv("ANANAS_USERNAME"), delay=100
+    )
+    await page.locator("#password").press_sequentially(
+        os.getenv("ANANAS_PASSWORD"), delay=100
+    )
 
     await page.locator("#amcMemberLogin").click()
 
@@ -61,11 +87,11 @@ async def login(page: Page) -> Page:
 
 
 async def main():
-    async with async_playwright() as p:
-        print("Launching browser...")
-        browser = await p.chromium.launch(headless=False)
-
+    print("Launching browser...")
+    async with AsyncCamoufox(headless=False) as browser:
         page = await fetch_page(browser)
+
+        await accept_cookies(page)
 
         print("Navigating to Flight Awards tab...")
         await click_flight_awards_tab(page)
@@ -84,7 +110,11 @@ async def main():
 
 
 async def _write_page_to_file(page, filename):
-    with open(os.path.join(os.getcwd(), "out", filename), "w", encoding="utf-8") as f:
+    with open(
+        os.path.join(os.getcwd(), os.getenv("HTML_OUTPUT_DIR"), filename),
+        "w",
+        encoding="utf-8",
+    ) as f:
         f.write(await page.content())
 
 

@@ -1,4 +1,8 @@
 {
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
+    "editor.formatOnSave": true,
     "files.exclude": {
         "*.venv": true,
         "**/.DS_Store": true,
@@ -6,5 +10,6 @@
         "**/.hg": true,
         "**/.svn": true,
         "**/Thumbs.db": true
-    }
+    },
+    "ruff.importStrategy": "fromEnvironment"
 }
